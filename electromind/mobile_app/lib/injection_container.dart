@@ -6,6 +6,8 @@ import 'features/clients/data/client_repository.dart';
 import 'features/clients/presentation/cubit/clients_cubit.dart';
 import 'features/tickets/data/tickets_repository.dart';
 import 'features/tickets/presentation/cubit/tickets_cubit.dart';
+import 'features/ai/presentation/cubit/ai_cubit.dart';
+import 'features/ai/data/repositories/ai_service.dart';
 
 final sl = GetIt.instance; // Service Locator
 
@@ -21,6 +23,10 @@ Future<void> init() async {
   // Features - Tickets
   sl.registerFactory(() => TicketsCubit(sl()));
   sl.registerLazySingleton(() => TicketsRepository(sl()));
+
+  // Features - AI
+  sl.registerFactory(() => AiCubit(sl()));
+  sl.registerLazySingleton(() => AiService());
 
   // External
   sl.registerLazySingleton(() => Supabase.instance.client);

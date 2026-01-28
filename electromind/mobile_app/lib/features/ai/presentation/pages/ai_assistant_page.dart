@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+import '../cubit/ai_cubit.dart';
 
 class AiAssistantPage extends StatefulWidget {
   final String? initialContext;
@@ -18,7 +20,6 @@ class _AiAssistantPageState extends State<AiAssistantPage> {
   @override
   void initState() {
     super.initState();
-    // Mensaje de bienvenida inicial
     _messages.add(
       ChatMessage(
         text:
@@ -28,7 +29,6 @@ class _AiAssistantPageState extends State<AiAssistantPage> {
       ),
     );
 
-    // Si hay contexto, el sistema "lo analiza"
     if (widget.initialContext != null) {
       Future.delayed(const Duration(milliseconds: 500), () {
         if (mounted) {
@@ -64,22 +64,8 @@ class _AiAssistantPageState extends State<AiAssistantPage> {
       _scrollToBottom();
     });
 
-    // Simulación de respuesta de IA (Placeholder)
-    Future.delayed(const Duration(milliseconds: 1500), () {
-      if (mounted) {
-        setState(() {
-          _isTyping = false;
-          _messages.add(ChatMessage(
-            text:
-                'Entendido. Esta función está conectándose al cerebro de Electromind... 🔌\n\n'
-                'Pronto podré darte diagnósticos reales basados en el ticket.',
-            isUser: false,
-            timestamp: DateTime.now(),
-          ));
-          _scrollToBottom();
-        });
-      }
-    });
+    // Enviar a la IA real
+    context.read<AiCubit>().sendMessage(text, context: widget.initialContext);
   }
 
   void _scrollToBottom() {
@@ -96,230 +82,258 @@ class _AiAssistantPageState extends State<AiAssistantPage> {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final isDark = theme.brightness == Brightness.dark;
+    return BlocListener<AiCubit, AiState>(
+      listener: (context, state) {
+        if (state is AiLoaded) {
+          setState(() {
+            _isTyping = false;
+            _messages.add(ChatMessage(
+              text: state.response,
+              isUser: false,
+              timestamp: DateTime.now(),
+            ));
+            _scrollToBottom();
+          });
+        } else if (state is AiError) {
+          setState(() => _isTyping = false);
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+                content: Text('Error: ${state.message}'),
+                backgroundColor: Colors.red),
+          );
+        }
+      },
+      child: Builder(builder: (context) {
+        final theme = Theme.of(context);
+        final isDark = theme.brightness == Brightness.dark;
 
-    return Scaffold(
-      appBar: AppBar(
-        title: Row(
-          children: [
-            Container(
-              padding: const EdgeInsets.all(6),
-              decoration: BoxDecoration(
-                color: theme.colorScheme.primary.withOpacity(0.2),
-                shape: BoxShape.circle,
-              ),
-              child: Icon(Icons.psychology, color: theme.colorScheme.primary),
-            ),
-            const SizedBox(width: 10),
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+        return Scaffold(
+          appBar: AppBar(
+            title: Row(
               children: [
-                const Text('Electromind AI',
-                    style:
-                        TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-                Row(
+                Container(
+                  padding: const EdgeInsets.all(6),
+                  decoration: BoxDecoration(
+                    color: theme.colorScheme.primary.withOpacity(0.2),
+                    shape: BoxShape.circle,
+                  ),
+                  child:
+                      Icon(Icons.psychology, color: theme.colorScheme.primary),
+                ),
+                const SizedBox(width: 10),
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Container(
-                      width: 8,
-                      height: 8,
-                      decoration: const BoxDecoration(
-                          color: Colors.green, shape: BoxShape.circle),
-                    ),
-                    const SizedBox(width: 6),
-                    Text('En línea',
+                    const Text('Electromind AI',
                         style: TextStyle(
-                            fontSize: 12,
-                            color: isDark ? Colors.white70 : Colors.black54)),
+                            fontSize: 16, fontWeight: FontWeight.bold)),
+                    Row(
+                      children: [
+                        Container(
+                          width: 8,
+                          height: 8,
+                          decoration: const BoxDecoration(
+                              color: Colors.green, shape: BoxShape.circle),
+                        ),
+                        const SizedBox(width: 6),
+                        Text('En línea',
+                            style: TextStyle(
+                                fontSize: 12,
+                                color:
+                                    isDark ? Colors.white70 : Colors.black54)),
+                      ],
+                    ),
                   ],
                 ),
               ],
             ),
-          ],
-        ),
-        actions: [
-          PopupMenuButton<String>(
-            onSelected: (value) {
-              if (value == 'clear') {
-                setState(() {
-                  _messages.clear();
-                  _messages.add(
-                    ChatMessage(
-                      text: 'Chat limpiado. ¿En qué más puedo ayudarte?',
-                      isUser: false,
-                      timestamp: DateTime.now(),
+            actions: [
+              PopupMenuButton<String>(
+                onSelected: (value) {
+                  if (value == 'clear') {
+                    setState(() {
+                      _messages.clear();
+                      _messages.add(
+                        ChatMessage(
+                          text: 'Chat limpiado. ¿En qué más puedo ayudarte?',
+                          isUser: false,
+                          timestamp: DateTime.now(),
+                        ),
+                      );
+                    });
+                  } else if (value == 'about') {
+                    showAboutDialog(
+                      context: context,
+                      applicationName: 'Electromind AI',
+                      applicationVersion: '1.0.0',
+                      applicationIcon: const Icon(Icons.psychology, size: 40),
+                      children: [
+                        const Text(
+                            'Asistente inteligente para técnicos de reparación.'),
+                      ],
+                    );
+                  }
+                },
+                itemBuilder: (BuildContext context) => <PopupMenuEntry<String>>[
+                  const PopupMenuItem<String>(
+                    value: 'clear',
+                    child: Row(
+                      children: [
+                        Icon(Icons.cleaning_services, color: Colors.grey),
+                        SizedBox(width: 8),
+                        Text('Limpiar conversación'),
+                      ],
                     ),
-                  );
-                });
-              } else if (value == 'about') {
-                showAboutDialog(
-                  context: context,
-                  applicationName: 'Electromind AI',
-                  applicationVersion: '1.0.0',
-                  applicationIcon: const Icon(Icons.psychology, size: 40),
-                  children: [
-                    const Text(
-                        'Asistente inteligente para técnicos de reparación.'),
-                  ],
-                );
-              }
-            },
-            itemBuilder: (BuildContext context) => <PopupMenuEntry<String>>[
-              const PopupMenuItem<String>(
-                value: 'clear',
-                child: Row(
-                  children: [
-                    Icon(Icons.cleaning_services, color: Colors.grey),
-                    SizedBox(width: 8),
-                    Text('Limpiar conversación'),
-                  ],
+                  ),
+                  const PopupMenuItem<String>(
+                    value: 'about',
+                    child: Row(
+                      children: [
+                        Icon(Icons.info_outline, color: Colors.grey),
+                        SizedBox(width: 8),
+                        Text('Acerca de'),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+          body: Column(
+            children: [
+              // Banner de Contexto (Sticky)
+              if (widget.initialContext != null)
+                Container(
+                  width: double.infinity,
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  color: theme.colorScheme.tertiaryContainer.withOpacity(0.3),
+                  child: Row(
+                    children: [
+                      Icon(Icons.info_outline,
+                          size: 16, color: theme.colorScheme.tertiary),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          widget.initialContext!,
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: theme.colorScheme.onTertiaryContainer,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                          maxLines: 1,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+
+              // Lista de Mensajes
+              Expanded(
+                child: ListView.builder(
+                  controller: _scrollCtrl,
+                  padding: const EdgeInsets.all(16),
+                  itemCount: _messages.length + (_isTyping ? 1 : 0),
+                  itemBuilder: (context, index) {
+                    if (index == _messages.length) {
+                      return const _TypingIndicator();
+                    }
+                    final msg = _messages[index];
+                    return _ChatBubble(message: msg);
+                  },
                 ),
               ),
-              const PopupMenuItem<String>(
-                value: 'about',
-                child: Row(
-                  children: [
-                    Icon(Icons.info_outline, color: Colors.grey),
-                    SizedBox(width: 8),
-                    Text('Acerca de'),
+
+              // Área de Input
+              Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                decoration: BoxDecoration(
+                  color: theme.scaffoldBackgroundColor,
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.05),
+                      blurRadius: 10,
+                      offset: const Offset(0, -5),
+                    ),
                   ],
+                ),
+                child: SafeArea(
+                  child: Row(
+                    children: [
+                      IconButton(
+                        icon: const Icon(Icons.add_circle_outline),
+                        onPressed: () {
+                          showModalBottomSheet(
+                            context: context,
+                            builder: (context) => SafeArea(
+                              child: Wrap(
+                                children: [
+                                  ListTile(
+                                    leading: const Icon(Icons.camera_alt),
+                                    title: const Text('Tomar Foto'),
+                                    onTap: () {
+                                      Navigator.pop(context);
+                                      // TODO: Implementar cámara
+                                    },
+                                  ),
+                                  ListTile(
+                                    leading: const Icon(Icons.image),
+                                    title: const Text('Galería'),
+                                    onTap: () {
+                                      Navigator.pop(context);
+                                      // TODO: Implementar galería
+                                    },
+                                  ),
+                                  ListTile(
+                                    leading: const Icon(Icons.attach_file),
+                                    title: const Text('Documento'),
+                                    onTap: () {
+                                      Navigator.pop(context);
+                                      // TODO: Implementar documentos
+                                    },
+                                  ),
+                                ],
+                              ),
+                            ),
+                          );
+                        },
+                      ),
+                      Expanded(
+                        child: TextField(
+                          controller: _textCtrl,
+                          decoration: InputDecoration(
+                            hintText: 'Escribe un mensaje...',
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(24),
+                              borderSide: BorderSide.none,
+                            ),
+                            filled: true,
+                            fillColor: isDark
+                                ? Colors.grey.withOpacity(0.2)
+                                : Colors.grey.shade100,
+                            contentPadding: const EdgeInsets.symmetric(
+                                horizontal: 20, vertical: 10),
+                          ),
+                          textCapitalization: TextCapitalization.sentences,
+                          onSubmitted: (_) => _handleSend(),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      FloatingActionButton(
+                        onPressed: _handleSend,
+                        mini: true,
+                        elevation: 0,
+                        child: const Icon(Icons.send),
+                      ),
+                    ],
+                  ),
                 ),
               ),
             ],
           ),
-        ],
-      ),
-      body: Column(
-        children: [
-          // Banner de Contexto (Sticky)
-          if (widget.initialContext != null)
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-              color: theme.colorScheme.tertiaryContainer.withOpacity(0.3),
-              child: Row(
-                children: [
-                  Icon(Icons.info_outline,
-                      size: 16, color: theme.colorScheme.tertiary),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Text(
-                      widget.initialContext!,
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: theme.colorScheme.onTertiaryContainer,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                      maxLines: 1,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-
-          // Lista de Mensajes
-          Expanded(
-            child: ListView.builder(
-              controller: _scrollCtrl,
-              padding: const EdgeInsets.all(16),
-              itemCount: _messages.length + (_isTyping ? 1 : 0),
-              itemBuilder: (context, index) {
-                if (index == _messages.length) {
-                  return const _TypingIndicator();
-                }
-                final msg = _messages[index];
-                return _ChatBubble(message: msg);
-              },
-            ),
-          ),
-
-          // Área de Input
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-            decoration: BoxDecoration(
-              color: theme.scaffoldBackgroundColor,
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withOpacity(0.05),
-                  blurRadius: 10,
-                  offset: const Offset(0, -5),
-                ),
-              ],
-            ),
-            child: SafeArea(
-              child: Row(
-                children: [
-                  IconButton(
-                    icon: const Icon(Icons.add_circle_outline),
-                    onPressed: () {
-                      showModalBottomSheet(
-                        context: context,
-                        builder: (context) => SafeArea(
-                          child: Wrap(
-                            children: [
-                              ListTile(
-                                leading: const Icon(Icons.camera_alt),
-                                title: const Text('Tomar Foto'),
-                                onTap: () {
-                                  Navigator.pop(context);
-                                  // TODO: Implementar cámara
-                                },
-                              ),
-                              ListTile(
-                                leading: const Icon(Icons.image),
-                                title: const Text('Galería'),
-                                onTap: () {
-                                  Navigator.pop(context);
-                                  // TODO: Implementar galería
-                                },
-                              ),
-                              ListTile(
-                                leading: const Icon(Icons.attach_file),
-                                title: const Text('Documento'),
-                                onTap: () {
-                                  Navigator.pop(context);
-                                  // TODO: Implementar documentos
-                                },
-                              ),
-                            ],
-                          ),
-                        ),
-                      );
-                    },
-                  ),
-                  Expanded(
-                    child: TextField(
-                      controller: _textCtrl,
-                      decoration: InputDecoration(
-                        hintText: 'Escribe un mensaje...',
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(24),
-                          borderSide: BorderSide.none,
-                        ),
-                        filled: true,
-                        fillColor: isDark
-                            ? Colors.grey.withOpacity(0.2)
-                            : Colors.grey.shade100,
-                        contentPadding: const EdgeInsets.symmetric(
-                            horizontal: 20, vertical: 10),
-                      ),
-                      textCapitalization: TextCapitalization.sentences,
-                      onSubmitted: (_) => _handleSend(),
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  FloatingActionButton(
-                    onPressed: _handleSend,
-                    mini: true,
-                    elevation: 0,
-                    child: const Icon(Icons.send),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ],
-      ),
+        );
+      }),
     );
   }
 }

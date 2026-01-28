@@ -6,6 +6,9 @@ import 'package:electromind_app/config/routes.dart';
 import 'core/utils/timeago_setup.dart';
 import 'injection_container.dart' as di;
 import 'features/auth/presentation/cubit/auth_cubit.dart';
+import 'features/tickets/presentation/cubit/tickets_cubit.dart';
+import 'features/clients/presentation/cubit/clients_cubit.dart';
+import 'features/ai/presentation/cubit/ai_cubit.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -27,8 +30,13 @@ class GreiaApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return BlocProvider(
-      create: (_) => di.sl<AuthCubit>(),
+    return MultiBlocProvider(
+      providers: [
+        BlocProvider(create: (_) => di.sl<AuthCubit>()),
+        BlocProvider(create: (_) => di.sl<TicketsCubit>()),
+        BlocProvider(create: (_) => di.sl<ClientsCubit>()),
+        BlocProvider(create: (_) => di.sl<AiCubit>()),
+      ],
       child: MaterialApp.router(
         title: 'GREiA',
         debugShowCheckedModeBanner: false,
