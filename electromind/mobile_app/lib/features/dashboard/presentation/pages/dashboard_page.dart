@@ -15,6 +15,7 @@ class DashboardPage extends StatefulWidget {
 
 class _DashboardPageState extends State<DashboardPage> {
   Key _refreshKey = UniqueKey();
+  bool _isFabOpen = false;
 
   @override
   Widget build(BuildContext context) {
@@ -44,26 +45,39 @@ class _DashboardPageState extends State<DashboardPage> {
       ),
       floatingActionButton: Column(
         mainAxisAlignment: MainAxisAlignment.end,
+        crossAxisAlignment: CrossAxisAlignment.end,
         children: [
+          if (_isFabOpen) ...[
+            FloatingActionButton.extended(
+              heroTag: 'scan_btn',
+              onPressed: () {
+                setState(() => _isFabOpen = false);
+                context.push('/scanner').then((_) {
+                  setState(() => _refreshKey = UniqueKey());
+                });
+              },
+              label: const Text('Escanear QR'),
+              icon: const Icon(Icons.qr_code_scanner),
+            ),
+            const SizedBox(height: 16),
+            FloatingActionButton.extended(
+              heroTag: 'new_btn',
+              onPressed: () {
+                setState(() => _isFabOpen = false);
+                context.push('/tickets/new').then((_) {
+                  setState(() => _refreshKey = UniqueKey());
+                });
+              },
+              label: const Text('Nuevo Servicio'),
+              icon: const Icon(Icons.note_add),
+            ),
+            const SizedBox(height: 16),
+          ],
           FloatingActionButton(
-            heroTag: 'scan_btn',
-            onPressed: () {
-              context.push('/scanner').then((_) {
-                setState(() => _refreshKey = UniqueKey());
-              });
-            },
-            child: const Icon(Icons.qr_code_scanner),
-          ),
-          const SizedBox(height: 16),
-          FloatingActionButton.extended(
-            heroTag: 'new_btn',
-            onPressed: () {
-              context.push('/tickets/new').then((_) {
-                setState(() => _refreshKey = UniqueKey());
-              });
-            },
-            label: const Text('Nuevo Servicio'),
-            icon: const Icon(Icons.add),
+            heroTag: 'main_fab',
+            onPressed: () => setState(() => _isFabOpen = !_isFabOpen),
+            backgroundColor: _isFabOpen ? Colors.grey : null,
+            child: Icon(_isFabOpen ? Icons.close : Icons.add),
           ),
         ],
       ),

@@ -7,6 +7,7 @@ import '../../data/models/ticket_history_model.dart';
 import '../../data/tickets_repository.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 import '../cubit/tickets_cubit.dart';
+import 'package:electromind_app/features/ai/presentation/widgets/ai_assistant_modal.dart';
 
 class TicketDetailPage extends StatefulWidget {
   final Ticket ticket;
@@ -113,36 +114,18 @@ class _TicketDetailPageState extends State<TicketDetailPage> {
       if (mounted) {
         setState(() {
           _isLoading = false;
-          _noteCtrl.clear(); // Limpiar nota después de guardar
+          _noteCtrl.clear();
         });
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
               content: Text('Cambios guardados correctamente'),
               backgroundColor: Colors.green),
         );
-        // Importante: No cerramos pantalla para que el usuario pueda seguir editando si quiere,
-        // y porque acabamos de limpiar la nota, reseteando el estado de "hasChanges" parcialmente.
-        // El status se mantiene, por lo que _hasChanges pasará ser false a menos que status sea diff al original.
-        // Pero espera, si guardo el status nuevo, el widget.ticket.status sigue siendo el viejo.
-        // Deberíamos actualizar el widget.ticket? No podemos, es final.
-        // Lo ideal es cerrar la pantalla o recargar todo el ticket.
-        // Por ahora, cerremos pantalla como feedback de "Tarea terminada" si se cambió estado,
-        // o dejemos abierto si fue solo nota.
-        // El usuario pidió "guardar cambios".
-
-        // Si el estado cambió, context.pop() suele ser mejor UX en flujos móviles simples.
-        // Pero el usuario pidió notas.
-        // Me quedaré en la pantalla pero forzaré la actualización visual si fuera posible.
-        // Como usamos BLoC, si el padre se redibuja, este widget podría reconstruirse si fuera push.
-        // Dado que usamos GoRouter push, estamos en el stack.
-
-        // Simplificación: nos quedamos en la pantalla.
       }
     });
   }
 
   void _showQrCode(BuildContext context) {
-    // Datos a codificar en el QR
     final qrData = 'GREIA-TICKET\n'
         'Ticket ID: #${widget.ticket.humanId}\n'
         'Cliente: ${widget.ticket.client?.fullName ?? "Sin Nombre"}\n'
@@ -160,7 +143,7 @@ class _TicketDetailPageState extends State<TicketDetailPage> {
               data: qrData,
               version: QrVersions.auto,
               size: 250.0,
-              backgroundColor: Colors.white, // Para contraste
+              backgroundColor: Colors.white,
             ),
           ),
         ),
@@ -174,12 +157,30 @@ class _TicketDetailPageState extends State<TicketDetailPage> {
     );
   }
 
+  void _openAiAssistant() {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => AiAssistantModal(
+        initialContext: 'Viendo Ticket #${widget.ticket.humanId}',
+        ticketContext: widget.ticket,
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final t = widget.ticket;
     final f = DateFormat('dd/MM/yyyy HH:mm');
 
     return Scaffold(
+      floatingActionButton: FloatingActionButton(
+        heroTag: 'ai_ticket_fab',
+        onPressed: _openAiAssistant,
+        backgroundColor: Colors.deepPurple,
+        child: const Icon(Icons.auto_awesome, color: Colors.white),
+      ),
       appBar: AppBar(
         title: Text('Ticket #${t.humanId}'),
         backgroundColor: _getStatusColor(_currentStatus),
@@ -285,7 +286,7 @@ class _TicketDetailPageState extends State<TicketDetailPage> {
                   trailing: IconButton(
                     icon: const Icon(Icons.phone, color: Colors.green),
                     onPressed: () {
-                      // TODO: Implementar llamada/whatsapp
+                      // TODO
                     },
                   ),
                 ),
@@ -384,7 +385,6 @@ class _TicketDetailPageState extends State<TicketDetailPage> {
 
               const SizedBox(height: 24),
 
-              // Solution Field (Conditional)
               if (_currentStatus == 'terminado' ||
                   _currentStatus == 'entregado') ...[
                 const Text('Solución Técnica',
@@ -414,9 +414,7 @@ class _TicketDetailPageState extends State<TicketDetailPage> {
                 const Center(child: CircularProgressIndicator())
               else
                 FilledButton.icon(
-                  onPressed: _hasChanges
-                      ? _saveChanges
-                      : null, // Deshabilitar si no hay cambios
+                  onPressed: _hasChanges ? _saveChanges : null,
                   icon: const Icon(Icons.save),
                   label: const Text('GUARDAR CAMBIOS'),
                   style: FilledButton.styleFrom(

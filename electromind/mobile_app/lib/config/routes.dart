@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import '../features/auth/presentation/pages/login_page.dart';
-import '../features/dashboard/presentation/pages/dashboard_page.dart';
+
 import '../features/clients/presentation/pages/clients_list_page.dart';
 import '../features/clients/presentation/pages/create_client_page.dart';
 import '../features/clients/presentation/cubit/clients_cubit.dart';
@@ -13,6 +13,8 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import '../injection_container.dart';
 import '../features/auth/presentation/cubit/auth_cubit.dart';
 import '../features/tickets/presentation/pages/qr_scanner_page.dart';
+import '../features/home/presentation/pages/main_page.dart';
+import '../features/ai/presentation/pages/ai_assistant_page.dart';
 
 final router = GoRouter(
   initialLocation: '/',
@@ -23,7 +25,7 @@ final router = GoRouter(
     ),
     GoRoute(
       path: '/dashboard',
-      builder: (context, state) => const DashboardPage(),
+      builder: (context, state) => const MainPage(),
     ),
     GoRoute(
       path: '/tickets/new',
@@ -38,6 +40,13 @@ final router = GoRouter(
         value: sl<TicketsCubit>(), // Usa la instancia existente
         child: const QrScannerPage(),
       ),
+    ),
+    GoRoute(
+      path: '/ai-chat',
+      builder: (context, state) {
+        final ctx = state.extra as String?;
+        return AiAssistantPage(initialContext: ctx);
+      },
     ),
     GoRoute(
       path: '/tickets/detail',
