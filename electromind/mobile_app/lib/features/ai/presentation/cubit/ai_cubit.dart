@@ -6,7 +6,7 @@ import '../../data/repositories/ai_service.dart';
 abstract class AiState extends Equatable {
   const AiState();
   @override
-  List<Object> get props => [];
+  List<Object?> get props => [];
 }
 
 class AiInitial extends AiState {}
@@ -15,16 +15,20 @@ class AiLoading extends AiState {}
 
 class AiLoaded extends AiState {
   final String response;
-  const AiLoaded(this.response);
+  final String? action;
+  final Map<String, dynamic>? actionData;
+
+  const AiLoaded(this.response, {this.action, this.actionData});
+
   @override
-  List<Object> get props => [response];
+  List<Object?> get props => [response, action, actionData];
 }
 
 class AiError extends AiState {
   final String message;
   const AiError(this.message);
   @override
-  List<Object> get props => [message];
+  List<Object?> get props => [message];
 }
 
 // --- CUBIT ---
@@ -36,8 +40,9 @@ class AiCubit extends Cubit<AiState> {
   Future<void> sendMessage(String message, {String? context}) async {
     emit(AiLoading());
     try {
-      final reply = await _service.sendMessage(message, context: context);
-      emit(AiLoaded(reply));
+      final result = await _service.sendMessage(message, context: context);
+      emit(AiLoaded(result.reply,
+          action: result.action, actionData: result.actionData));
     } catch (e) {
       emit(AiError(e.toString()));
     }

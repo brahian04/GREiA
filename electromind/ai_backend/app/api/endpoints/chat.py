@@ -33,8 +33,20 @@ async def chat_endpoint(request: ChatRequest):
 
         # 3. Generar respuesta
         # Nota: generate_ai_response es sincrono, idealmente hacerlo async o en threadpool
-        reply = generate_ai_response(request.message, context=full_context)
-        return ChatResponse(reply=reply)
+        ai_result = generate_ai_response(request.message, context=full_context)
+        
+        reply_text = ""
+        action = None
+        action_data = None
+        
+        if isinstance(ai_result, dict):
+            reply_text = ai_result.get("text", "")
+            action = ai_result.get("action")
+            action_data = ai_result.get("action_data")
+        else:
+            reply_text = str(ai_result)
+
+        return ChatResponse(reply=reply_text, action=action, action_data=action_data)
     except Exception as e:
         logger.error(f"Error in chat endpoint: {e}")
         raise HTTPException(status_code=500, detail=str(e))

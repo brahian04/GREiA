@@ -1,5 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:uuid/uuid.dart';
+import '../../../tickets/data/models/ticket_model.dart';
+import '../../../clients/data/models/client_model.dart';
+import '../../../tickets/presentation/cubit/tickets_cubit.dart';
 import '../cubit/ai_cubit.dart';
 
 class AiAssistantPage extends StatefulWidget {
@@ -80,6 +84,86 @@ class _AiAssistantPageState extends State<AiAssistantPage> {
     });
   }
 
+  void _showRegistrationConfirmation(
+      BuildContext context, Map<String, dynamic> data) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Row(
+          children: [
+            Icon(Icons.app_registration, color: Colors.deepPurple),
+            SizedBox(width: 10),
+            Text('Confirmar Registro'),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('Cliente: ${data['client_name']}',
+                style: const TextStyle(fontWeight: FontWeight.bold)),
+            Text('Tel: ${data['phone']}'),
+            const Divider(),
+            Text(
+                'Equipo: ${data['device_type']} ${data['brand']} ${data['model']}'),
+            const SizedBox(height: 5),
+            Text('Falla:', style: const TextStyle(fontWeight: FontWeight.bold)),
+            Text(data['problem_description']),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Cancelar'),
+          ),
+          FilledButton.icon(
+            icon: const Icon(Icons.check),
+            label: const Text('Registrar'),
+            onPressed: () {
+              Navigator.pop(ctx);
+              _registerTicket(data);
+            },
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _registerTicket(Map<String, dynamic> data) {
+    try {
+      final clientId = const Uuid().v4();
+      final newClient = Client(
+        id: clientId,
+        fullName: data['client_name'],
+        phone: data['phone'],
+        createdAt: DateTime.now(),
+      );
+
+      final newTicket = Ticket(
+        id: const Uuid().v4(),
+        humanId: 0,
+        clientId: clientId,
+        deviceType: data['device_type'],
+        brand: data['brand'],
+        model: data['model'],
+        problemDescription: data['problem_description'],
+        status: 'pendiente',
+        priority: 'media',
+        createdAt: DateTime.now(),
+      );
+
+      context
+          .read<TicketsCubit>()
+          .createTicket(newTicket, newClient: newClient);
+
+      // La confirmación visual ahora se maneja en el BlocListener de TicketsCubit
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error creando ticket: $e')),
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return BlocListener<AiCubit, AiState>(
@@ -102,239 +186,273 @@ class _AiAssistantPageState extends State<AiAssistantPage> {
                 backgroundColor: Colors.red),
           );
         }
+
+        // Handle Actions
+        if (state is AiLoaded &&
+            state.action == 'register_ticket' &&
+            state.actionData != null) {
+          _showRegistrationConfirmation(context, state.actionData!);
+        }
       },
       child: Builder(builder: (context) {
-        final theme = Theme.of(context);
-        final isDark = theme.brightness == Brightness.dark;
+        return BlocListener<TicketsCubit, TicketsState>(
+          listener: (context, state) {
+            if (state is TicketsLoaded) {
+              setState(() {
+                _messages.add(ChatMessage(
+                  text: '✅ Ticket registrado exitosamente en el sistema.',
+                  isUser: false,
+                  timestamp: DateTime.now(),
+                ));
+              });
+              _scrollToBottom();
+            } else if (state is TicketsError) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                    content: Text('Error guardando ticket: ${state.message}'),
+                    backgroundColor: Colors.red),
+              );
+            }
+          },
+          child: Builder(builder: (context) {
+            final theme = Theme.of(context);
+            final isDark = theme.brightness == Brightness.dark;
 
-        return Scaffold(
-          appBar: AppBar(
-            title: Row(
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(6),
-                  decoration: BoxDecoration(
-                    color: theme.colorScheme.primary.withOpacity(0.2),
-                    shape: BoxShape.circle,
-                  ),
-                  child:
-                      Icon(Icons.psychology, color: theme.colorScheme.primary),
-                ),
-                const SizedBox(width: 10),
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+            return Scaffold(
+              appBar: AppBar(
+                title: Row(
                   children: [
-                    const Text('Electromind AI',
-                        style: TextStyle(
-                            fontSize: 16, fontWeight: FontWeight.bold)),
-                    Row(
+                    Container(
+                      padding: const EdgeInsets.all(6),
+                      decoration: BoxDecoration(
+                        color: theme.colorScheme.primary.withOpacity(0.2),
+                        shape: BoxShape.circle,
+                      ),
+                      child: Icon(Icons.psychology,
+                          color: theme.colorScheme.primary),
+                    ),
+                    const SizedBox(width: 10),
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Container(
-                          width: 8,
-                          height: 8,
-                          decoration: const BoxDecoration(
-                              color: Colors.green, shape: BoxShape.circle),
-                        ),
-                        const SizedBox(width: 6),
-                        Text('En línea',
+                        const Text('Electromind AI',
                             style: TextStyle(
-                                fontSize: 12,
-                                color:
-                                    isDark ? Colors.white70 : Colors.black54)),
+                                fontSize: 16, fontWeight: FontWeight.bold)),
+                        Row(
+                          children: [
+                            Container(
+                              width: 8,
+                              height: 8,
+                              decoration: const BoxDecoration(
+                                  color: Colors.green, shape: BoxShape.circle),
+                            ),
+                            const SizedBox(width: 6),
+                            Text('En línea',
+                                style: TextStyle(
+                                    fontSize: 12,
+                                    color: isDark
+                                        ? Colors.white70
+                                        : Colors.black54)),
+                          ],
+                        ),
                       ],
                     ),
                   ],
                 ),
-              ],
-            ),
-            actions: [
-              PopupMenuButton<String>(
-                onSelected: (value) {
-                  if (value == 'clear') {
-                    setState(() {
-                      _messages.clear();
-                      _messages.add(
-                        ChatMessage(
-                          text: 'Chat limpiado. ¿En qué más puedo ayudarte?',
-                          isUser: false,
-                          timestamp: DateTime.now(),
+                actions: [
+                  PopupMenuButton<String>(
+                    onSelected: (value) {
+                      if (value == 'clear') {
+                        setState(() {
+                          _messages.clear();
+                          _messages.add(
+                            ChatMessage(
+                              text:
+                                  'Chat limpiado. ¿En qué más puedo ayudarte?',
+                              isUser: false,
+                              timestamp: DateTime.now(),
+                            ),
+                          );
+                        });
+                      } else if (value == 'about') {
+                        showAboutDialog(
+                          context: context,
+                          applicationName: 'Electromind AI',
+                          applicationVersion: '1.0.0',
+                          applicationIcon:
+                              const Icon(Icons.psychology, size: 40),
+                          children: [
+                            const Text(
+                                'Asistente inteligente para técnicos de reparación.'),
+                          ],
+                        );
+                      }
+                    },
+                    itemBuilder: (BuildContext context) =>
+                        <PopupMenuEntry<String>>[
+                      const PopupMenuItem<String>(
+                        value: 'clear',
+                        child: Row(
+                          children: [
+                            Icon(Icons.cleaning_services, color: Colors.grey),
+                            SizedBox(width: 8),
+                            Text('Limpiar conversación'),
+                          ],
                         ),
-                      );
-                    });
-                  } else if (value == 'about') {
-                    showAboutDialog(
-                      context: context,
-                      applicationName: 'Electromind AI',
-                      applicationVersion: '1.0.0',
-                      applicationIcon: const Icon(Icons.psychology, size: 40),
-                      children: [
-                        const Text(
-                            'Asistente inteligente para técnicos de reparación.'),
-                      ],
-                    );
-                  }
-                },
-                itemBuilder: (BuildContext context) => <PopupMenuEntry<String>>[
-                  const PopupMenuItem<String>(
-                    value: 'clear',
-                    child: Row(
-                      children: [
-                        Icon(Icons.cleaning_services, color: Colors.grey),
-                        SizedBox(width: 8),
-                        Text('Limpiar conversación'),
-                      ],
+                      ),
+                      const PopupMenuItem<String>(
+                        value: 'about',
+                        child: Row(
+                          children: [
+                            Icon(Icons.info_outline, color: Colors.grey),
+                            SizedBox(width: 8),
+                            Text('Acerca de'),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+              body: Column(
+                children: [
+                  // Banner de Contexto (Sticky)
+                  if (widget.initialContext != null)
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 16, vertical: 8),
+                      color:
+                          theme.colorScheme.tertiaryContainer.withOpacity(0.3),
+                      child: Row(
+                        children: [
+                          Icon(Icons.info_outline,
+                              size: 16, color: theme.colorScheme.tertiary),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              widget.initialContext!,
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: theme.colorScheme.onTertiaryContainer,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                              maxLines: 1,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+
+                  // Lista de Mensajes
+                  Expanded(
+                    child: ListView.builder(
+                      controller: _scrollCtrl,
+                      padding: const EdgeInsets.all(16),
+                      itemCount: _messages.length + (_isTyping ? 1 : 0),
+                      itemBuilder: (context, index) {
+                        if (index == _messages.length) {
+                          return const _TypingIndicator();
+                        }
+                        final msg = _messages[index];
+                        return _ChatBubble(message: msg);
+                      },
                     ),
                   ),
-                  const PopupMenuItem<String>(
-                    value: 'about',
-                    child: Row(
-                      children: [
-                        Icon(Icons.info_outline, color: Colors.grey),
-                        SizedBox(width: 8),
-                        Text('Acerca de'),
+
+                  // Área de Input
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 16, vertical: 12),
+                    decoration: BoxDecoration(
+                      color: theme.scaffoldBackgroundColor,
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.05),
+                          blurRadius: 10,
+                          offset: const Offset(0, -5),
+                        ),
                       ],
+                    ),
+                    child: SafeArea(
+                      child: Row(
+                        children: [
+                          IconButton(
+                            icon: const Icon(Icons.add_circle_outline),
+                            onPressed: () {
+                              showModalBottomSheet(
+                                context: context,
+                                builder: (context) => SafeArea(
+                                  child: Wrap(
+                                    children: [
+                                      ListTile(
+                                        leading: const Icon(Icons.camera_alt),
+                                        title: const Text('Tomar Foto'),
+                                        onTap: () {
+                                          Navigator.pop(context);
+                                          // TODO: Implementar cámara
+                                        },
+                                      ),
+                                      ListTile(
+                                        leading: const Icon(Icons.image),
+                                        title: const Text('Galería'),
+                                        onTap: () {
+                                          Navigator.pop(context);
+                                          // TODO: Implementar galería
+                                        },
+                                      ),
+                                      ListTile(
+                                        leading: const Icon(Icons.attach_file),
+                                        title: const Text('Documento'),
+                                        onTap: () {
+                                          Navigator.pop(context);
+                                          // TODO: Implementar documentos
+                                        },
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              );
+                            },
+                          ),
+                          Expanded(
+                            child: TextField(
+                              controller: _textCtrl,
+                              decoration: InputDecoration(
+                                hintText: 'Escribe un mensaje...',
+                                border: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(24),
+                                  borderSide: BorderSide.none,
+                                ),
+                                filled: true,
+                                fillColor: isDark
+                                    ? Colors.grey.withOpacity(0.2)
+                                    : Colors.grey.shade100,
+                                contentPadding: const EdgeInsets.symmetric(
+                                    horizontal: 20, vertical: 10),
+                              ),
+                              textCapitalization: TextCapitalization.sentences,
+                              onSubmitted: (_) => _handleSend(),
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          FloatingActionButton(
+                            onPressed: _handleSend,
+                            mini: true,
+                            elevation: 0,
+                            child: const Icon(Icons.send),
+                          ),
+                        ],
+                      ),
                     ),
                   ),
                 ],
               ),
-            ],
-          ),
-          body: Column(
-            children: [
-              // Banner de Contexto (Sticky)
-              if (widget.initialContext != null)
-                Container(
-                  width: double.infinity,
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                  color: theme.colorScheme.tertiaryContainer.withOpacity(0.3),
-                  child: Row(
-                    children: [
-                      Icon(Icons.info_outline,
-                          size: 16, color: theme.colorScheme.tertiary),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: Text(
-                          widget.initialContext!,
-                          style: TextStyle(
-                            fontSize: 12,
-                            color: theme.colorScheme.onTertiaryContainer,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                          maxLines: 1,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-
-              // Lista de Mensajes
-              Expanded(
-                child: ListView.builder(
-                  controller: _scrollCtrl,
-                  padding: const EdgeInsets.all(16),
-                  itemCount: _messages.length + (_isTyping ? 1 : 0),
-                  itemBuilder: (context, index) {
-                    if (index == _messages.length) {
-                      return const _TypingIndicator();
-                    }
-                    final msg = _messages[index];
-                    return _ChatBubble(message: msg);
-                  },
-                ),
-              ),
-
-              // Área de Input
-              Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                decoration: BoxDecoration(
-                  color: theme.scaffoldBackgroundColor,
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withOpacity(0.05),
-                      blurRadius: 10,
-                      offset: const Offset(0, -5),
-                    ),
-                  ],
-                ),
-                child: SafeArea(
-                  child: Row(
-                    children: [
-                      IconButton(
-                        icon: const Icon(Icons.add_circle_outline),
-                        onPressed: () {
-                          showModalBottomSheet(
-                            context: context,
-                            builder: (context) => SafeArea(
-                              child: Wrap(
-                                children: [
-                                  ListTile(
-                                    leading: const Icon(Icons.camera_alt),
-                                    title: const Text('Tomar Foto'),
-                                    onTap: () {
-                                      Navigator.pop(context);
-                                      // TODO: Implementar cámara
-                                    },
-                                  ),
-                                  ListTile(
-                                    leading: const Icon(Icons.image),
-                                    title: const Text('Galería'),
-                                    onTap: () {
-                                      Navigator.pop(context);
-                                      // TODO: Implementar galería
-                                    },
-                                  ),
-                                  ListTile(
-                                    leading: const Icon(Icons.attach_file),
-                                    title: const Text('Documento'),
-                                    onTap: () {
-                                      Navigator.pop(context);
-                                      // TODO: Implementar documentos
-                                    },
-                                  ),
-                                ],
-                              ),
-                            ),
-                          );
-                        },
-                      ),
-                      Expanded(
-                        child: TextField(
-                          controller: _textCtrl,
-                          decoration: InputDecoration(
-                            hintText: 'Escribe un mensaje...',
-                            border: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(24),
-                              borderSide: BorderSide.none,
-                            ),
-                            filled: true,
-                            fillColor: isDark
-                                ? Colors.grey.withOpacity(0.2)
-                                : Colors.grey.shade100,
-                            contentPadding: const EdgeInsets.symmetric(
-                                horizontal: 20, vertical: 10),
-                          ),
-                          textCapitalization: TextCapitalization.sentences,
-                          onSubmitted: (_) => _handleSend(),
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      FloatingActionButton(
-                        onPressed: _handleSend,
-                        mini: true,
-                        elevation: 0,
-                        child: const Icon(Icons.send),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ],
-          ),
-        );
-      }),
-    );
+            );
+          }), // Builder interno
+        ); // BlocListener interno (TicketsCubit)
+      }), // Builder externo
+    ); // BlocListener externo (AiCubit)
   }
 }
 
@@ -392,7 +510,9 @@ class _ChatBubble extends StatelessWidget {
               '${message.timestamp.hour}:${message.timestamp.minute.toString().padLeft(2, '0')}',
               style: TextStyle(
                 fontSize: 10,
-                color: isUser ? Colors.white70 : Colors.black45,
+                color: isUser
+                    ? Colors.white70
+                    : theme.colorScheme.onSurface.withOpacity(0.6),
               ),
             ),
           ],

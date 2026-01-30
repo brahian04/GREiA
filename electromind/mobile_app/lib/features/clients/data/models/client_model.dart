@@ -31,6 +31,7 @@ class Client {
 
   Map<String, dynamic> toJson() {
     return {
+      'id': id,
       'full_name': fullName,
       'phone': phone,
       'email': email,

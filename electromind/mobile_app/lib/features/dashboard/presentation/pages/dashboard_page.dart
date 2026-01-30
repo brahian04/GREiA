@@ -1,9 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
-import '../../../../injection_container.dart';
 import '../../../auth/presentation/cubit/auth_cubit.dart';
-import '../../../tickets/presentation/cubit/tickets_cubit.dart';
+import '../../../tickets/presentation/cubit/tickets_cubit.dart'; // Re-needed for loadTickets
 import '../../../tickets/presentation/widgets/tickets_list_view.dart';
 
 class DashboardPage extends StatefulWidget {
@@ -14,7 +13,6 @@ class DashboardPage extends StatefulWidget {
 }
 
 class _DashboardPageState extends State<DashboardPage> {
-  Key _refreshKey = UniqueKey();
   bool _isFabOpen = false;
 
   @override
@@ -37,11 +35,7 @@ class _DashboardPageState extends State<DashboardPage> {
             context.go('/');
           }
         },
-        child: BlocProvider(
-          key: _refreshKey, // Forzamos recreación al cambiar la key
-          create: (context) => sl<TicketsCubit>(), // Proveer el Cubit aquí
-          child: const TicketsListView(),
-        ),
+        child: const TicketsListView(),
       ),
       floatingActionButton: Column(
         mainAxisAlignment: MainAxisAlignment.end,
@@ -53,7 +47,8 @@ class _DashboardPageState extends State<DashboardPage> {
               onPressed: () {
                 setState(() => _isFabOpen = false);
                 context.push('/scanner').then((_) {
-                  setState(() => _refreshKey = UniqueKey());
+                  // Refrescar al volver del scanner
+                  context.read<TicketsCubit>().loadTickets();
                 });
               },
               label: const Text('Escanear QR'),
@@ -65,7 +60,8 @@ class _DashboardPageState extends State<DashboardPage> {
               onPressed: () {
                 setState(() => _isFabOpen = false);
                 context.push('/tickets/new').then((_) {
-                  setState(() => _refreshKey = UniqueKey());
+                  // Refrescar al volver de crear ticket manual
+                  context.read<TicketsCubit>().loadTickets();
                 });
               },
               label: const Text('Nuevo Servicio'),
