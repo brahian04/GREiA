@@ -5,6 +5,8 @@ import 'package:electromind_app/features/ai/presentation/pages/ai_assistant_page
 import 'package:electromind_app/features/inventory/presentation/pages/inventory_page.dart';
 
 import 'package:electromind_app/features/ai/presentation/widgets/ai_assistant_modal.dart';
+import 'package:electromind_app/features/tickets/presentation/cubit/tickets_cubit.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 
 class MainPage extends StatefulWidget {
   const MainPage({super.key});
@@ -43,9 +45,33 @@ class _MainPageState extends State<MainPage> {
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (context) => AiAssistantModal(
-        initialContext: _getContextForIndex(_selectedIndex),
-      ),
+      builder: (context) {
+        // Calcular estadísticas en tiempo real desde el Cubit
+        String systemContext = _getContextForIndex(_selectedIndex);
+
+        final ticketsState = context.read<TicketsCubit>().state;
+        if (ticketsState is TicketsLoaded) {
+          final total = ticketsState.tickets.length;
+          final pending =
+              ticketsState.tickets.where((t) => t.status == 'pendiente').length;
+          final inProgress = ticketsState.tickets
+              .where((t) => ['revision', 'reparando'].contains(t.status))
+              .length;
+          final finished = ticketsState.tickets
+              .where((t) => ['terminado', 'entregado'].contains(t.status))
+              .length;
+
+          systemContext += '\n\nESTADO ACTUAL DEL TALLER:\n'
+              '- Tickets Totales: $total\n'
+              '- Pendientes: $pending\n'
+              '- En Proceso: $inProgress\n'
+              '- Terminados/Entregados: $finished';
+        }
+
+        return AiAssistantModal(
+          initialContext: systemContext,
+        );
+      },
     );
   }
 

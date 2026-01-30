@@ -3,6 +3,20 @@ import google.generativeai as genai
 from supabase import create_client, Client
 from dotenv import load_dotenv
 import logging
+import time
+import asyncio
+from functools import wraps
+try:
+    from lru import LRU
+except ImportError:
+    # Fallback si lru-dict no esta bien instalado
+    class LRU(dict):
+        def __init__(self, size):
+            self.size = size
+        def __setitem__(self, key, value):
+            if len(self) >= self.size:
+                self.pop(next(iter(self)))
+            super().__setitem__(key, value)
 
 load_dotenv()
 
@@ -41,8 +55,31 @@ if GOOGLE_API_KEY:
     except Exception as e:
         logger.error(f"Error configuring Gemini: {e}")
 
-EMBEDDING_MODEL = "models/embedding-001"
+# Caché para embeddings de búsqueda (evita 429 en preguntas repetidas)
+query_cache = LRU(100)  # Guardar los últimos 100 queries
 
+def retry_with_backoff(retries=3, backoff_in_seconds=2):
+    def decorator(func):
+        @wraps(func)
+        async def wrapper(*args, **kwargs):
+            x = 0
+            while True:
+                try:
+                    return await func(*args, **kwargs)
+                except Exception as e:
+                    if "429" in str(e) and x < retries:
+                        sleep_time = (backoff_in_seconds * (2 ** x))
+                        logger.warning(f"Gemini Rate Limit (429). Retrying in {sleep_time}s... (Attempt {x+1}/{retries})")
+                        await asyncio.sleep(sleep_time)
+                        x += 1
+                    else:
+                        raise e
+        return wrapper
+    return decorator
+
+EMBEDDING_MODEL = "models/text-embedding-004"
+
+@retry_with_backoff(retries=3)
 async def generate_embedding(text: str) -> list[float]:
     """Genera un embedding vectorial para el texto dado usando Gemini."""
     try:
@@ -122,13 +159,25 @@ async def search_knowledge(query: str, match_threshold: float = 0.7, match_count
         return []
 
     try:
-        # Embedding de la consulta (task_type retrieval_query es mejor para preguntas)
-        query_embedding_result = genai.embed_content(
-            model=EMBEDDING_MODEL,
-            content=query,
-            task_type="retrieval_query"
-        )
-        query_vector = query_embedding_result['embedding']
+        # Check Cache
+        if query in query_cache:
+            logger.info(f"Query embedding found in cache: {query[:30]}...")
+            query_vector = query_cache[query]
+        else:
+            try:
+                # Embedding de la consulta (task_type retrieval_query es mejor para preguntas)
+                query_embedding_result = genai.embed_content(
+                    model=EMBEDDING_MODEL,
+                    content=query,
+                    task_type="retrieval_query"
+                )
+                query_vector = query_embedding_result['embedding']
+                query_cache[query] = query_vector
+            except Exception as e:
+                if "429" in str(e):
+                    logger.warning(f"Google API Quota exceeded (RAG Skipped): {e}")
+                    return [] # Fallback: No rag context
+                raise e
         
         # Llamar a la función RPC de Postgres (definida en Fase 1)
         params = {

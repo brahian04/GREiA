@@ -165,6 +165,7 @@ class _TicketDetailPageState extends State<TicketDetailPage> {
       builder: (context) => AiAssistantModal(
         initialContext: 'Viendo Ticket #${widget.ticket.humanId}',
         ticketContext: widget.ticket,
+        ticketHistory: _history,
       ),
     );
   }
@@ -176,7 +177,7 @@ class _TicketDetailPageState extends State<TicketDetailPage> {
 
     return Scaffold(
       floatingActionButton: FloatingActionButton(
-        heroTag: 'ai_ticket_fab',
+        heroTag: 'ai_ticket_fab_unique',
         onPressed: _openAiAssistant,
         backgroundColor: Colors.deepPurple,
         child: const Icon(Icons.auto_awesome, color: Colors.white),

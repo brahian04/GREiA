@@ -32,8 +32,7 @@ async def chat_endpoint(request: ChatRequest):
             full_context += f"Información de Manuales/Base de Conocimiento:\n{context_text}"
 
         # 3. Generar respuesta
-        # Nota: generate_ai_response es sincrono, idealmente hacerlo async o en threadpool
-        ai_result = generate_ai_response(request.message, context=full_context)
+        ai_result = await generate_ai_response(request.message, context=full_context)
         
         reply_text = ""
         action = None

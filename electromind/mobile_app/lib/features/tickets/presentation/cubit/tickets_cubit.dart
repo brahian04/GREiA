@@ -22,6 +22,13 @@ class TicketsLoaded extends TicketsState {
   List<Object> get props => [tickets];
 }
 
+class TicketCreated extends TicketsState {
+  final Ticket ticket;
+  const TicketCreated(this.ticket);
+  @override
+  List<Object> get props => [ticket];
+}
+
 class TicketsError extends TicketsState {
   final String message;
   const TicketsError(this.message);
@@ -52,7 +59,8 @@ class TicketsCubit extends Cubit<TicketsState> {
       } else {
         await _repository.createTicket(ticket);
       }
-      loadTickets();
+      emit(TicketCreated(ticket)); // Emitir evento de éxito específico
+      loadTickets(); // Recargar la lista después
     } catch (e) {
       emit(TicketsError(e.toString()));
     }

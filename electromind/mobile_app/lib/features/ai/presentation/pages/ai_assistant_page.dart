@@ -1,15 +1,18 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_markdown/flutter_markdown.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:uuid/uuid.dart';
 import '../../../tickets/data/models/ticket_model.dart';
 import '../../../clients/data/models/client_model.dart';
 import '../../../tickets/presentation/cubit/tickets_cubit.dart';
 import '../cubit/ai_cubit.dart';
+import '../../domain/entities/chat_message.dart';
 
 class AiAssistantPage extends StatefulWidget {
   final String? initialContext;
+  final List<ChatMessage>? initialMessages; // New parameter
 
-  const AiAssistantPage({super.key, this.initialContext});
+  const AiAssistantPage({super.key, this.initialContext, this.initialMessages});
 
   @override
   State<AiAssistantPage> createState() => _AiAssistantPageState();
@@ -24,14 +27,19 @@ class _AiAssistantPageState extends State<AiAssistantPage> {
   @override
   void initState() {
     super.initState();
-    _messages.add(
-      ChatMessage(
-        text:
-            'Hola, soy Electromind AI. 🧠\n¿En qué puedo ayudarte hoy con tus reparaciones?',
-        isUser: false,
-        timestamp: DateTime.now(),
-      ),
-    );
+    if (widget.initialMessages != null && widget.initialMessages!.isNotEmpty) {
+      _messages.addAll(widget.initialMessages!);
+      // Scroll to bottom after frame
+      WidgetsBinding.instance.addPostFrameCallback((_) => _scrollToBottom());
+    } else {
+      _messages.add(
+        ChatMessage(
+          text: _getGreetingMessage(),
+          isUser: false,
+          timestamp: DateTime.now(),
+        ),
+      );
+    }
 
     if (widget.initialContext != null) {
       Future.delayed(const Duration(milliseconds: 500), () {
@@ -164,6 +172,24 @@ class _AiAssistantPageState extends State<AiAssistantPage> {
     }
   }
 
+  String _getGreetingMessage() {
+    if (widget.initialContext == null) {
+      return 'Hola, soy Electromind AI. 🧠\n¿En qué puedo ayudarte hoy?';
+    }
+
+    final ctx = widget.initialContext!.toLowerCase();
+
+    if (ctx.contains('inventario')) {
+      return 'Hola. 📦\nPuedo ayudarte a buscar repuestos, verificar stock o registrar entradas.';
+    } else if (ctx.contains('clientes')) {
+      return 'Gestión de Clientes. 👥\n¿Necesitas buscar a alguien o registrar un nuevo cliente?';
+    } else if (ctx.contains('taller') || ctx.contains('dashboard')) {
+      return 'Asistente de Taller activo. 🔧\nPregúntame sobre fallas, costos o crea un nuevo ticket.';
+    } else {
+      return 'Hola, soy Electromind AI. 🧠\n¿En qué puedo ayudarte hoy?';
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return BlocListener<AiCubit, AiState>(
@@ -197,7 +223,7 @@ class _AiAssistantPageState extends State<AiAssistantPage> {
       child: Builder(builder: (context) {
         return BlocListener<TicketsCubit, TicketsState>(
           listener: (context, state) {
-            if (state is TicketsLoaded) {
+            if (state is TicketCreated) {
               setState(() {
                 _messages.add(ChatMessage(
                   text: '✅ Ticket registrado exitosamente en el sistema.',
@@ -456,15 +482,7 @@ class _AiAssistantPageState extends State<AiAssistantPage> {
   }
 }
 
-class ChatMessage {
-  final String text;
-  final bool isUser;
-  final DateTime timestamp;
-
-  ChatMessage(
-      {required this.text, required this.isUser, required this.timestamp});
-}
-
+// End of file class removed
 class _ChatBubble extends StatelessWidget {
   final ChatMessage message;
 
@@ -498,11 +516,58 @@ class _ChatBubble extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           mainAxisSize: MainAxisSize.min,
           children: [
-            Text(
-              message.text,
-              style: TextStyle(
-                color: isUser ? Colors.white : theme.colorScheme.onSurface,
-                fontSize: 15,
+            MarkdownBody(
+              data: message.text,
+              styleSheet: MarkdownStyleSheet(
+                p: TextStyle(
+                  color: isUser ? Colors.white : theme.colorScheme.onSurface,
+                  fontSize: 15,
+                ),
+                strong: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  color: isUser ? Colors.white : theme.colorScheme.onSurface,
+                ),
+                tableBody: TextStyle(
+                  fontSize: 13,
+                  color: isUser ? Colors.white : theme.colorScheme.onSurface,
+                ),
+                tableHead: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 13,
+                  color: isUser ? Colors.white : theme.colorScheme.onSurface,
+                ),
+                tableBorder: TableBorder.all(
+                  color: isUser ? Colors.white24 : Colors.grey.shade400,
+                  width: 0.5,
+                ),
+                code: TextStyle(
+                  backgroundColor: Colors.transparent,
+                  color: isUser ? Colors.white : theme.colorScheme.onSurface,
+                  fontSize: 13,
+                  fontFamily: 'monospace',
+                ),
+                codeblockDecoration: BoxDecoration(
+                  color: isUser
+                      ? Colors.black12
+                      : theme.brightness == Brightness.dark
+                          ? Colors.black26
+                          : Colors.white54,
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(
+                    color:
+                        isUser ? Colors.white12 : Colors.grey.withOpacity(0.2),
+                  ),
+                ),
+                codeblockPadding: const EdgeInsets.all(8),
+                blockquotePadding: const EdgeInsets.only(left: 14),
+                blockquoteDecoration: BoxDecoration(
+                  border: Border(
+                    left: BorderSide(
+                      color: isUser ? Colors.white70 : theme.primaryColor,
+                      width: 4,
+                    ),
+                  ),
+                ),
               ),
             ),
             const SizedBox(height: 4),

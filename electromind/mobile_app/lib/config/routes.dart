@@ -15,6 +15,8 @@ import '../features/auth/presentation/cubit/auth_cubit.dart';
 import '../features/tickets/presentation/pages/qr_scanner_page.dart';
 import '../features/home/presentation/pages/main_page.dart';
 import '../features/ai/presentation/pages/ai_assistant_page.dart';
+// import '../features/ai/presentation/widgets/ai_assistant_modal.dart'; // No longer needed for model
+import '../features/ai/domain/entities/chat_message.dart';
 
 final router = GoRouter(
   initialLocation: '/',
@@ -44,8 +46,18 @@ final router = GoRouter(
     GoRoute(
       path: '/ai-chat',
       builder: (context, state) {
-        final ctx = state.extra as String?;
-        return AiAssistantPage(initialContext: ctx);
+        String? ctx;
+        List<ChatMessage>? msgs;
+
+        if (state.extra is Map) {
+          final data = state.extra as Map;
+          ctx = data['context'] as String?;
+          msgs = data['messages'] as List<ChatMessage>?;
+        } else if (state.extra is String) {
+          ctx = state.extra as String?;
+        }
+
+        return AiAssistantPage(initialContext: ctx, initialMessages: msgs);
       },
     ),
     GoRoute(
